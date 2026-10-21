@@ -14,7 +14,7 @@
   </bpmn:collaboration>
 
   <bpmn:process id="mitglied_werden" name="Mitglied werden" isExecutable="true">
-    <bpmn:documentation>Beispielprozess: Eine Person beantragt die Mitgliedschaft im Portal, CiviCRM prüft die Angaben, das Backoffice gibt frei oder die Annahme erfolgt automatisch nach Fristablauf.</bpmn:documentation>
+    <bpmn:documentation>Beispielprozess: Eine Person beantragt die Mitgliedschaft im Portal, CiviCRM prüft die Angaben, das Beziehungsmanagement gibt frei oder die Annahme erfolgt automatisch nach Fristablauf.</bpmn:documentation>
 
     <bpmn:laneSet id="LaneSet_MitgliedWerden">
       <bpmn:lane id="Lane_Portal" name="Portal">
@@ -31,7 +31,7 @@
         <bpmn:flowNodeRef>Aktivieren</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Ablehnen</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="Lane_Backoffice" name="Backoffice">
+      <bpmn:lane id="Lane_Beziehungsmanagement" name="Beziehungsmanagement">
         <bpmn:flowNodeRef>Freigeben</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Frist</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>GwFreigabe</bpmn:flowNodeRef>
@@ -69,10 +69,10 @@
       <bpmn:incoming>F3</bpmn:incoming>
     </bpmn:endEvent>
 
-    <bpmn:userTask id="Freigeben" name="Antrag prüfen und freigeben" flowable:candidateGroups="backoffice">
-      <bpmn:documentation>Das Backoffice prüft den Antrag und gibt ihn frei oder lehnt ihn ab. Das geht im Portal oder in CiviCRM.</bpmn:documentation>
+    <bpmn:userTask id="Freigeben" name="Antrag prüfen und freigeben" flowable:candidateGroups="Beziehungsmanagement">
+      <bpmn:documentation>Das Beziehungsmanagement prüft den Antrag und gibt ihn frei oder lehnt ihn ab. Das geht im Portal oder in CiviCRM.</bpmn:documentation>
       <bpmn:extensionElements>
-        <pc:mapping layer="Orchestration" ui="Portal-Aufgabenliste oder CiviCRM-Maske" owner="Backoffice"
+        <pc:mapping layer="Orchestration" ui="Portal-Aufgabenliste oder CiviCRM-Maske" owner="Beziehungsmanagement"
                     implementation="User Task im Orchestrator, beide Oberflächen schließen dieselbe Aufgabe ab" />
       </bpmn:extensionElements>
       <bpmn:incoming>F4</bpmn:incoming>
@@ -80,7 +80,7 @@
     </bpmn:userTask>
 
     <bpmn:boundaryEvent id="Frist" name="Frist abgelaufen" cancelActivity="true" attachedToRef="Freigeben">
-      <bpmn:documentation>Entscheidet das Backoffice nicht innerhalb der Frist, wird der Antrag automatisch angenommen.</bpmn:documentation>
+      <bpmn:documentation>Entscheidet das Beziehungsmanagement nicht innerhalb der Frist, wird der Antrag automatisch angenommen.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Orchestration" owner="Fachbereich"
                     implementation="Timer, Dauer kommt aus dem Parameter autoAcceptAfterDays" />
@@ -161,7 +161,7 @@
       <bpmndi:BPMNShape id="Lane_CiviCRM_di" bpmnElement="Lane_CiviCRM" isHorizontal="true">
         <dc:Bounds x="190" y="360" width="1250" height="140" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_Backoffice_di" bpmnElement="Lane_Backoffice" isHorizontal="true">
+      <bpmndi:BPMNShape id="Lane_Beziehungsmanagement_di" bpmnElement="Lane_Beziehungsmanagement" isHorizontal="true">
         <dc:Bounds x="190" y="500" width="1250" height="140" />
       </bpmndi:BPMNShape>
 
