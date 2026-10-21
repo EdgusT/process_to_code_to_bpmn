@@ -8,7 +8,8 @@
     "check": "node scripts/check.mjs",
     "render": "node scripts/render-svg.mjs",
     "build": "node scripts/build-site.mjs",
-    "all": "npm run check && npm run render && npm run build"
+    "all": "npm run check && npm run render && npm run build",
+    "demo": "node demo/run-demo.mjs"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

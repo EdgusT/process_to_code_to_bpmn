@@ -23,6 +23,10 @@ Die **Domäne** ist der Prozess-Owner. Sie steht in `meta.json` und als Name des
 
 Aktuell enthalten: **Mitglied werden** (Domäne Beziehungsmanagement) und **Veranstaltung anmelden** (Domäne Veranstaltungsmanagement, mit Finanzsystem).
 
+## Demo mit Flowable
+
+Der Ordner `demo/` startet eine echte Flowable-Engine per Docker und spielt „Mitglied werden“ durch (Freigabe, Ablehnung, Timer). Noch nicht gegen eine echte Engine geprüft, siehe `demo/README.md`.
+
 ## Owner und Beteiligte
 
 Der **Pool** im Diagramm ist die Domäne des Prozess-Owners. Die **Bahnen** darin sind weitere Beteiligte: andere Domänen (zum Beispiel Finanzen), Teams, Systeme und Plattformen (Portal, Orchestrierung). Damit sie überall gleich heißen und sich filtern lassen, stehen alle in `catalog/participants.json`:

@@ -1,0 +1,8 @@
+# Startet eine echte Flowable-Engine mit REST-Schnittstelle (H2-Datenbank im Speicher).
+# Adresse: http://localhost:8080/flowable-rest, Benutzer rest-admin, Passwort test (Standardwerte des Images).
+# Hinweis: Das Image-Tag ist nicht festgelegt. Für Tests bitte eine feste Version eintragen.
+services:
+  flowable:
+    image: flowable/flowable-rest
+    ports:
+      - "8080:8080"
