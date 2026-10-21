@@ -37,6 +37,7 @@
     </bpmn:laneSet>
 
     <bpmn:startEvent id="Start" name="Anmeldung abgesendet">
+      <bpmn:documentation>Eine Person meldet sich im Portal zu einer Veranstaltung an.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Experience" ui="Portal-Formular" owner="Frontend-Team"
                     implementation="Das Portal startet den Prozess über die Flowable-REST-API" />
@@ -46,6 +47,7 @@
 
     <bpmn:serviceTask id="Registrieren" name="Teilnahme registrieren"
                       flowable:type="external-worker" flowable:topic="civicrm.participant.register">
+      <bpmn:documentation>CiviCRM prüft, ob noch ein Platz frei ist, und legt die Teilnahme als „ausstehend“ an.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Domain Service" system="CiviCRM" owner="CiviCRM-Team"
                     implementation="Prüft freie Plätze in CiviCRM und legt die Teilnahme mit Status Pending an (API v4)" />
@@ -61,11 +63,13 @@
     </bpmn:exclusiveGateway>
 
     <bpmn:endEvent id="EndWarteliste" name="Warteliste">
+      <bpmn:documentation>Kein Platz frei. Die Person kommt auf die Warteliste.</bpmn:documentation>
       <bpmn:incoming>F3</bpmn:incoming>
     </bpmn:endEvent>
 
     <bpmn:serviceTask id="Rechnung" name="Rechnung erstellen"
                       flowable:type="external-worker" flowable:topic="finance.invoice.create">
+      <bpmn:documentation>Das Finanzsystem erstellt die Rechnung und sendet sie an die Person.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Domain Service" system="Finanzsystem" owner="Finanzen"
                     implementation="Erstellt die Rechnung und versendet sie (Finanzsystem-API)" />
@@ -75,6 +79,7 @@
     </bpmn:serviceTask>
 
     <bpmn:userTask id="Zahlung" name="Zahlungseingang bestätigen" flowable:candidateGroups="finanzen">
+      <bpmn:documentation>Die Finanzabteilung bestätigt den Zahlungseingang.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Orchestration" ui="Aufgabenliste im Finanzsystem" owner="Finanzen"
                     implementation="User Task im Orchestrator, wird bei Zahlungseingang abgeschlossen" />
@@ -83,7 +88,8 @@
       <bpmn:outgoing>F6</bpmn:outgoing>
     </bpmn:userTask>
 
-    <bpmn:boundaryEvent id="Zahlfrist" name="nach Zahlfrist" cancelActivity="true" attachedToRef="Zahlung">
+    <bpmn:boundaryEvent id="Zahlfrist" name="Zahlfrist abgelaufen" cancelActivity="true" attachedToRef="Zahlung">
+      <bpmn:documentation>Geht die Zahlung nicht innerhalb der Frist ein, wird die Anmeldung storniert.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Orchestration" owner="Finanzen"
                     implementation="Timer, Dauer kommt aus dem Parameter paymentDeadlineDays" />
@@ -96,6 +102,7 @@
 
     <bpmn:serviceTask id="Bestaetigen" name="Anmeldung bestätigen"
                       flowable:type="external-worker" flowable:topic="civicrm.participant.confirm">
+      <bpmn:documentation>CiviCRM bestätigt die Teilnahme und versendet die Bestätigung.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Domain Service" system="CiviCRM" owner="CiviCRM-Team"
                     implementation="Setzt die Teilnahme auf Registered und versendet die Bestätigung (API v4)" />
@@ -106,6 +113,7 @@
 
     <bpmn:serviceTask id="Stornieren" name="Anmeldung stornieren"
                       flowable:type="external-worker" flowable:topic="civicrm.participant.cancel">
+      <bpmn:documentation>CiviCRM storniert die Anmeldung und gibt den Platz frei.</bpmn:documentation>
       <bpmn:extensionElements>
         <pc:mapping layer="Domain Service" system="CiviCRM" owner="CiviCRM-Team"
                     implementation="Setzt die Teilnahme auf Cancelled und gibt den Platz frei (API v4)" />
@@ -115,10 +123,12 @@
     </bpmn:serviceTask>
 
     <bpmn:endEvent id="EndStorniert" name="Anmeldung storniert">
+      <bpmn:documentation>Die Anmeldung ist storniert, der Platz ist wieder frei.</bpmn:documentation>
       <bpmn:incoming>F8</bpmn:incoming>
     </bpmn:endEvent>
 
     <bpmn:endEvent id="EndBestaetigt" name="Anmeldung bestätigt">
+      <bpmn:documentation>Die Teilnahme ist bestätigt.</bpmn:documentation>
       <bpmn:incoming>F9</bpmn:incoming>
     </bpmn:endEvent>
 

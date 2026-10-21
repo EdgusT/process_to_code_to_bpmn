@@ -15,6 +15,11 @@ body:
     attributes:
       label: Domäne (Prozess-Owner)
       description: Wird von der Prozessübersicht vorbelegt.
+  - type: input
+    id: parameter
+    attributes:
+      label: Betrifft Einstellung (nur bei Parameteränderung)
+      description: Wird von der Prozessübersicht vorbelegt.
   - type: dropdown
     id: kind
     attributes:

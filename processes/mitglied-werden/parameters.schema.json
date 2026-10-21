@@ -3,17 +3,25 @@
   "title": "Parameter des Prozesses „Mitglied werden“",
   "type": "object",
   "additionalProperties": false,
-  "required": ["autoAcceptAfterDays"],
+  "required": [
+    "autoAcceptAfterDays"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "autoAcceptAfterDays": {
+      "title": "Frist bis zur automatischen Annahme",
       "type": "integer",
       "minimum": 1,
       "maximum": 365,
       "description": "Nach so vielen Tagen ohne Entscheidung wird der Antrag automatisch angenommen.",
       "x-unit": "Tage",
       "x-owner": "Fachbereich",
-      "x-variable": { "name": "autoAcceptDuration", "format": "isoDays" }
+      "x-variable": {
+        "name": "autoAcceptDuration",
+        "format": "isoDays"
+      }
     }
   }
 }

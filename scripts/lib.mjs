@@ -115,6 +115,7 @@ export function extractModel(definitions) {
         workerType: el.$attrs?.['flowable:type'] ?? null,
         attachedTo: el.attachedToRef?.id ?? null,
         timerDuration: timer?.timeDuration?.body ?? null,
+        documentation: (el.documentation ?? []).map((d) => d.text).join(' ').trim(),
         mapping: mappingOf(el),
       });
     }

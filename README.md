@@ -24,8 +24,13 @@ Aktuell enthalten: **Mitglied werden** (Domäne Beziehungsmanagement) und **Vera
 
 ## Aufbau der Seite
 
-- **Übersicht** (`/`): Kennzahlen, Prozessliste mit Domäne (Prozess-Owner), Status und Systemen (Filter nach Domäne und Suche, Direktlink mit `#Domäne`), Änderungsprozess, Matrix „Welche Prozesse nutzen welches System“, Liste der Task-Typen mit Handler und Nutzung, alle Parameter aller Prozesse, Prüfergebnis.
-- **Prozessseite** (`/prozesse/<id>/`): Diagramm, Schritte mit Zuordnung, Parameter mit abgeleiteten Variablen, Prüfergebnis und Downloads der Quelldateien.
+Die Seite ist für Domänen (Prozess-Owner) und Fachanwender gedacht, nicht für Entwickler.
+
+- **Prozessübersicht** (`/`): Liste aller Prozesse mit Domäne und einstellbaren Werten, Filter nach Domäne, Direktlink mit `#Domäne`, Erklärung der Änderung.
+- **Prozessseite** (`/prozesse/<id>/`): Diagramm, Schritte in einfacher Sprache, einstellbare Werte mit Erlaubnisbereich, Buttons „Ändern beantragen“ und „Anderen Ablauf beantragen“ (öffnen ein vorbelegtes Issue).
+- **Technische Details** (`/technik/`): Zuordnung der Schritte, Task-Typen und Worker, Systemmatrix, Prozessvariablen, Prüfergebnisse, Quelldateien. Verlinkt im Seitenfuß.
+
+Die einfache Sprache kommt aus dem BPMN selbst: Jeder Schritt hat eine Beschreibung (`bpmn:documentation`, im Modeler im Feld „Documentation“), jeder Parameter einen `title` im Schema. Die Pipeline prüft, dass beides vorhanden ist.
 
 ## Neuen Prozess anlegen
 

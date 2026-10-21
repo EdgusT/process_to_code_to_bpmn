@@ -72,6 +72,18 @@ async function checkProcess(id) {
     add('Jeder Schritt hat Ebene, Verantwortliche und Umsetzung', problems, `${need.length} Schritte geprüft`);
   }
 
+  // 3b. Beschreibung in einfacher Sprache (für die Prozessseite) und Titel der Parameter
+  {
+    const problems = [];
+    for (const n of model.nodes) {
+      if ((/Task$/.test(n.type) || /Event$/.test(n.type)) && !n.documentation) problems.push(`${n.id}: Beschreibung (documentation) fehlt`);
+    }
+    for (const [k, def] of Object.entries(schema.properties)) {
+      if (k !== '$schema' && !def.title) problems.push(`Parameter ${k}: title (Name für Fachanwender) fehlt`);
+    }
+    add('Schritte und Parameter sind in einfacher Sprache beschrieben', problems);
+  }
+
   // 5. Variablen in Ausdrücken sind bekannt (Parameter oder Ergebnis eines Schritts)
   {
     const derived = deriveVariables(params, schema);
