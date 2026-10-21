@@ -1,7 +1,9 @@
 // Worker-Seite des Beispiels: Je Task-Typ (Topic) im BPMN-Modell gibt es genau einen Handler.
 // Die Handler sind hier bewusst nur Platzhalter. In echt würden sie über die Flowable-REST-API
 // (External Worker Tasks) offene Aufgaben holen und die CiviCRM-API v4 aufrufen.
-// Der Drift-Check in scripts/check.mjs vergleicht diese Liste mit dem Modell.
+// Der Drift-Check in scripts/check.mjs vergleicht diese Liste mit allen Prozessmodellen:
+// Jeder Topic im Modell braucht einen Handler, und jeder Handler muss in mindestens einem Modell vorkommen.
+// Topics, die mehrere Prozesse nutzen, werden nur einmal implementiert.
 
 export const handlers = {
   'civicrm.membership.create-pending': {
@@ -26,9 +28,39 @@ export const handlers = {
       return {};
     },
   },
+  'civicrm.participant.register': {
+    description: 'Prüft freie Plätze und legt die Teilnahme mit Status Pending an',
+    produces: ['platzFrei'],
+    async run(/* variables */) {
+      return { platzFrei: true };
+    },
+  },
+  'civicrm.participant.confirm': {
+    description: 'Setzt die Teilnahme auf Registered und versendet die Bestätigung',
+    produces: [],
+    async run(/* variables */) {
+      return {};
+    },
+  },
+  'civicrm.participant.cancel': {
+    description: 'Setzt die Teilnahme auf Cancelled und gibt den Platz frei',
+    produces: [],
+    async run(/* variables */) {
+      return {};
+    },
+  },
+  'finance.invoice.create': {
+    description: 'Erstellt die Rechnung im Finanzsystem und versendet sie',
+    produces: [],
+    async run(/* variables */) {
+      return {};
+    },
+  },
 };
 
-// Variablen, die das User Task im Orchestrator liefert, wenn es abgeschlossen wird.
+// Variablen, die ein User Task im Orchestrator liefert, wenn es abgeschlossen wird.
+// Schlüssel: Prozess-ID aus dem BPMN, dann ID des Schritts.
 export const userTaskOutputs = {
-  Freigeben: ['freigegeben'],
+  mitglied_werden: { Freigeben: ['freigegeben'] },
+  veranstaltung_anmelden: { Zahlung: [] },
 };

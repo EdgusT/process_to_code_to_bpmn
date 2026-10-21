@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { BpmnModdle } from 'bpmn-moddle';
@@ -6,36 +7,73 @@ import { BpmnModdle } from 'bpmn-moddle';
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export const paths = {
-  bpmn: path.join(root, 'processes/mitglied-werden/mitglied-werden.bpmn'),
-  params: path.join(root, 'processes/mitglied-werden/parameters.json'),
-  schema: path.join(root, 'schemas/parameters.schema.json'),
+  processes: path.join(root, 'processes'),
   site: path.join(root, 'site'),
 };
 
-export async function loadAll() {
-  const [xml, paramsText, schemaText] = await Promise.all([
-    readFile(paths.bpmn, 'utf8'),
-    readFile(paths.params, 'utf8'),
-    readFile(paths.schema, 'utf8'),
+// Konvention: processes/<id>/ enthält <id>.bpmn, parameters.json, parameters.schema.json und meta.json.
+// Jeder Ordner mit einer <id>.bpmn gehört automatisch zur Prozesslandkarte.
+export async function listProcessIds() {
+  const entries = await readdir(paths.processes, { withFileTypes: true });
+  return entries
+    .filter((e) => e.isDirectory() && existsSync(path.join(paths.processes, e.name, `${e.name}.bpmn`)))
+    .map((e) => e.name)
+    .sort();
+}
+
+export function processFiles(id) {
+  const dir = path.join(paths.processes, id);
+  return {
+    dir,
+    bpmn: path.join(dir, `${id}.bpmn`),
+    params: path.join(dir, 'parameters.json'),
+    schema: path.join(dir, 'parameters.schema.json'),
+    meta: path.join(dir, 'meta.json'),
+  };
+}
+
+export async function loadProcess(id) {
+  const files = processFiles(id);
+  const read = (f) => readFile(f, 'utf8');
+  const [xml, paramsText, schemaText, metaText] = await Promise.all([
+    read(files.bpmn),
+    read(files.params),
+    read(files.schema),
+    read(files.meta),
   ]);
   const moddle = new BpmnModdle();
   const { rootElement: definitions, warnings } = await moddle.fromXML(xml);
   return {
+    id,
+    files,
     xml,
     params: JSON.parse(paramsText),
     schema: JSON.parse(schemaText),
+    meta: JSON.parse(metaText),
     definitions,
     warnings,
   };
 }
 
 // Parameter (fachlich lesbar) -> Prozessvariablen (technisch, so erwartet sie das BPMN-Modell).
-// Der Timer in Flowable braucht eine Dauer im ISO-8601-Format, z. B. P30D.
-// Der Deploy-Schritt muss diese Variablen beim Prozessstart mitgeben (nicht Teil dieses Beispiels).
-export function deriveVariables(params) {
-  return {
-    autoAcceptDuration: `P${params.autoAcceptAfterDays}D`,
-  };
+// Das Schema sagt je Parameter, wie er umgerechnet wird (x-variable). Der Timer in Flowable
+// braucht eine Dauer im ISO-8601-Format, z. B. P30D. Der Deploy-Schritt muss diese Variablen
+// beim Prozessstart mitgeben (nicht Teil dieses Beispiels).
+const FORMATS = {
+  isoDays: (v) => `P${v}D`,
+  asIs: (v) => v,
+};
+
+export function deriveVariables(params, schema) {
+  const out = {};
+  for (const [key, def] of Object.entries(schema.properties ?? {})) {
+    const spec = def['x-variable'];
+    if (!spec || !(key in params)) continue;
+    const fn = FORMATS[spec.format];
+    if (!fn) throw new Error(`Unbekanntes Format "${spec.format}" bei Parameter ${key}`);
+    out[spec.name] = fn(params[key]);
+  }
+  return out;
 }
 
 function mappingOf(element) {
@@ -81,7 +119,8 @@ export function extractModel(definitions) {
       });
     }
   }
-  return { processId: proc.id, processName: proc.name, nodes, flows };
+  const documentation = (proc.documentation ?? []).map((d) => d.text).join(' ').trim();
+  return { processId: proc.id, processName: proc.name, documentation, nodes, flows };
 }
 
 export function extractDiagram(definitions) {

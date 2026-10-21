@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Parameter des Prozesses „Veranstaltung anmelden“",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["paymentDeadlineDays"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "paymentDeadlineDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 90,
+      "description": "Nach so vielen Tagen ohne Zahlungseingang wird die Anmeldung storniert.",
+      "x-unit": "Tage",
+      "x-owner": "Finanzen",
+      "x-variable": { "name": "paymentDeadline", "format": "isoDays" }
+    }
+  }
+}

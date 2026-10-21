@@ -1,6 +1,6 @@
 import Ajv from 'ajv';
 import { pathToFileURL } from 'node:url';
-import { loadAll, extractModel, extractDiagram, deriveVariables } from './lib.mjs';
+import { listProcessIds, loadProcess, extractModel, extractDiagram, deriveVariables } from './lib.mjs';
 import { handlers, userTaskOutputs } from '../workers/handlers.mjs';
 
 const EL_KEYWORDS = new Set(['true', 'false', 'null', 'empty', 'not', 'and', 'or', 'eq', 'ne', 'lt', 'gt', 'le', 'ge', 'div', 'mod']);
@@ -27,8 +27,11 @@ function overlap(a, b) {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
-export async function runChecks() {
-  const { params, schema, definitions, warnings } = await loadAll();
+const META_FIELDS = ['domain', 'owner', 'status'];
+const STATUS = new Set(['Entwurf', 'Produktiv', 'Archiviert']);
+
+async function checkProcess(id) {
+  const { params, schema, meta, definitions, warnings } = await loadProcess(id);
   const model = extractModel(definitions);
   const diagram = extractDiagram(definitions);
   const results = [];
@@ -45,6 +48,15 @@ export async function runChecks() {
     );
   }
 
+  // 1b. Stammdaten des Prozesses (meta.json)
+  {
+    const problems = [];
+    for (const k of META_FIELDS) if (!meta[k]) problems.push(`meta.json: ${k} fehlt`);
+    if (meta.status && !STATUS.has(meta.status)) problems.push(`meta.json: status "${meta.status}" ist nicht erlaubt (${[...STATUS].join(', ')})`);
+    if (!model.documentation) problems.push('BPMN: Beschreibung (documentation) am Prozess fehlt');
+    add('Prozess hat Bereich, Verantwortliche, Status und Beschreibung', problems);
+  }
+
   // 2. BPMN lässt sich fehlerfrei lesen
   add('BPMN-Datei ist gültig lesbar', warnings.map((w) => w.message ?? String(w)));
 
@@ -59,21 +71,12 @@ export async function runChecks() {
     add('Jeder Schritt hat Ebene, Verantwortliche und Umsetzung', problems, `${need.length} Schritte geprüft`);
   }
 
-  // 4. Drift-Check: Task-Typen im Modell gegen Handler im Code
-  {
-    const modelTopics = new Set(model.nodes.filter((n) => n.workerType === 'external-worker').map((n) => n.topic));
-    const codeTopics = new Set(Object.keys(handlers));
-    const problems = [];
-    for (const t of modelTopics) if (!codeTopics.has(t)) problems.push(`Im Modell, aber ohne Handler: ${t}`);
-    for (const t of codeTopics) if (!modelTopics.has(t)) problems.push(`Handler ohne Schritt im Modell: ${t}`);
-    add('Drift-Check: Task-Typen im Modell und Handler im Code stimmen überein', problems, `${modelTopics.size} Task-Typen`);
-  }
-
   // 5. Variablen in Ausdrücken sind bekannt (Parameter oder Ergebnis eines Schritts)
   {
-    const known = new Set(Object.keys(deriveVariables(params)));
-    for (const h of Object.values(handlers)) for (const v of h.produces) known.add(v);
-    for (const outs of Object.values(userTaskOutputs)) for (const v of outs) known.add(v);
+    const derived = deriveVariables(params, schema);
+    const known = new Set(Object.keys(derived));
+    for (const n of model.nodes) if (n.topic && handlers[n.topic]) for (const v of handlers[n.topic].produces) known.add(v);
+    for (const outs of Object.values(userTaskOutputs[model.processId] ?? {})) for (const v of outs) known.add(v);
     const problems = [];
     const expressions = [
       ...model.flows.filter((f) => f.condition).map((f) => ({ where: f.id, text: f.condition })),
@@ -128,15 +131,70 @@ export async function runChecks() {
     add('Zeichnung ist vollständig und sauber (Formen, Pfeile, Überlappung)', problems);
   }
 
-  return { results, model, params, derived: deriveVariables(params), ok: results.every((r) => r.ok) };
+  return {
+    id,
+    meta,
+    model,
+    params,
+    schema,
+    derived: deriveVariables(params, schema),
+    results,
+    ok: results.every((r) => r.ok),
+  };
+}
+
+export async function runChecks() {
+  const ids = await listProcessIds();
+  const processes = [];
+  for (const id of ids) processes.push(await checkProcess(id));
+
+  // Prozessübergreifend
+  const global = [];
+  const add = (name, problems, info = '') => global.push({ name, ok: problems.length === 0, problems, info });
+
+  // Prozess-IDs im BPMN sind eindeutig, sonst kollidieren sie in der Engine
+  {
+    const seen = new Map();
+    const problems = [];
+    for (const p of processes) {
+      if (seen.has(p.model.processId)) problems.push(`Prozess-ID ${p.model.processId} kommt in ${seen.get(p.model.processId)} und ${p.id} vor`);
+      seen.set(p.model.processId, p.id);
+    }
+    add('Prozess-IDs sind eindeutig', problems, `${processes.length} Prozesse`);
+  }
+
+  // Drift-Check über alle Prozesse: Task-Typen in den Modellen gegen Handler im Code
+  {
+    const modelTopics = new Map();
+    for (const p of processes) {
+      for (const n of p.model.nodes) {
+        if (n.workerType !== 'external-worker') continue;
+        if (!modelTopics.has(n.topic)) modelTopics.set(n.topic, new Set());
+        modelTopics.get(n.topic).add(p.id);
+      }
+    }
+    const codeTopics = new Set(Object.keys(handlers));
+    const problems = [];
+    for (const [t, users] of modelTopics) if (!codeTopics.has(t)) problems.push(`Im Modell (${[...users].join(', ')}), aber ohne Handler: ${t}`);
+    for (const t of codeTopics) if (!modelTopics.has(t)) problems.push(`Handler ohne Schritt in einem Modell: ${t}`);
+    add('Drift-Check: Task-Typen in allen Modellen und Handler im Code stimmen überein', problems, `${modelTopics.size} Task-Typen`);
+  }
+
+  return { processes, global, ok: global.every((r) => r.ok) && processes.every((p) => p.ok) };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { results, ok } = await runChecks();
-  for (const r of results) {
-    console.log(`${r.ok ? '✔' : '✘'} ${r.name}${r.info ? ` (${r.info})` : ''}`);
-    for (const p of r.problems) console.log(`    - ${p}`);
+  const { processes, global, ok } = await runChecks();
+  const print = (r) => {
+    console.log(`  ${r.ok ? '✔' : '✘'} ${r.name}${r.info ? ` (${r.info})` : ''}`);
+    for (const p of r.problems) console.log(`      - ${p}`);
+  };
+  for (const p of processes) {
+    console.log(`${p.model.processName} (${p.id})`);
+    p.results.forEach(print);
   }
+  console.log('Prozessübergreifend');
+  global.forEach(print);
   if (!ok) {
     console.error('\nPrüfung fehlgeschlagen.');
     process.exit(1);

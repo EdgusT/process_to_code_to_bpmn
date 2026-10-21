@@ -1,0 +1,4 @@
+{
+  "$schema": "./parameters.schema.json",
+  "paymentDeadlineDays": 14
+}

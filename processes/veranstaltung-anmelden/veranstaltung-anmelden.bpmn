@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:flowable="http://flowable.org/bpmn"
+                  xmlns:pc="https://github.com/EdgusT/process_to_code_to_bpmn/mapping"
+                  id="Definitions_VeranstaltungAnmelden"
+                  targetNamespace="https://github.com/EdgusT/process_to_code_to_bpmn/processes">
+
+  <bpmn:collaboration id="Collaboration_VeranstaltungAnmelden">
+    <bpmn:participant id="Participant_VeranstaltungAnmelden" name="Veranstaltung anmelden" processRef="veranstaltung_anmelden" />
+  </bpmn:collaboration>
+
+  <bpmn:process id="veranstaltung_anmelden" name="Veranstaltung anmelden" isExecutable="true">
+    <bpmn:documentation>Beispielprozess: Eine Person meldet sich im Portal zu einer Veranstaltung an, CiviCRM registriert die Teilnahme, das Finanzsystem stellt die Rechnung, die Anmeldung wird bei Zahlungseingang bestätigt oder nach Fristablauf storniert.</bpmn:documentation>
+
+    <bpmn:laneSet id="LaneSet_VeranstaltungAnmelden">
+      <bpmn:lane id="Lane_Portal" name="Portal">
+        <bpmn:flowNodeRef>Start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndWarteliste</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndStorniert</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndBestaetigt</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_CiviCRM" name="CiviCRM">
+        <bpmn:flowNodeRef>Registrieren</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GwPlatz</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Stornieren</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Bestaetigen</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Finanzen" name="Finanzen">
+        <bpmn:flowNodeRef>Rechnung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Zahlung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Zahlfrist</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="Start" name="Anmeldung abgesendet">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Experience" ui="Portal-Formular" owner="Frontend-Team"
+                    implementation="Das Portal startet den Prozess über die Flowable-REST-API" />
+      </bpmn:extensionElements>
+      <bpmn:outgoing>F1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="Registrieren" name="Teilnahme registrieren"
+                      flowable:type="external-worker" flowable:topic="civicrm.participant.register">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Domain Service" system="CiviCRM" owner="CiviCRM-Team"
+                    implementation="Prüft freie Plätze in CiviCRM und legt die Teilnahme mit Status Pending an (API v4)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>F1</bpmn:incoming>
+      <bpmn:outgoing>F2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="GwPlatz" name="Platz frei?" default="F3">
+      <bpmn:incoming>F2</bpmn:incoming>
+      <bpmn:outgoing>F3</bpmn:outgoing>
+      <bpmn:outgoing>F4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndWarteliste" name="Warteliste">
+      <bpmn:incoming>F3</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:serviceTask id="Rechnung" name="Rechnung erstellen"
+                      flowable:type="external-worker" flowable:topic="finance.invoice.create">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Domain Service" system="Finanzsystem" owner="Finanzen"
+                    implementation="Erstellt die Rechnung und versendet sie (Finanzsystem-API)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>F4</bpmn:incoming>
+      <bpmn:outgoing>F5</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Zahlung" name="Zahlungseingang bestätigen" flowable:candidateGroups="finanzen">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Orchestration" ui="Aufgabenliste im Finanzsystem" owner="Finanzen"
+                    implementation="User Task im Orchestrator, wird bei Zahlungseingang abgeschlossen" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>F5</bpmn:incoming>
+      <bpmn:outgoing>F6</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:boundaryEvent id="Zahlfrist" name="nach Zahlfrist" cancelActivity="true" attachedToRef="Zahlung">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Orchestration" owner="Finanzen"
+                    implementation="Timer, Dauer kommt aus dem Parameter paymentDeadlineDays" />
+      </bpmn:extensionElements>
+      <bpmn:outgoing>F7</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerDef_Zahlfrist">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${paymentDeadline}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+
+    <bpmn:serviceTask id="Bestaetigen" name="Anmeldung bestätigen"
+                      flowable:type="external-worker" flowable:topic="civicrm.participant.confirm">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Domain Service" system="CiviCRM" owner="CiviCRM-Team"
+                    implementation="Setzt die Teilnahme auf Registered und versendet die Bestätigung (API v4)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>F6</bpmn:incoming>
+      <bpmn:outgoing>F9</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Stornieren" name="Anmeldung stornieren"
+                      flowable:type="external-worker" flowable:topic="civicrm.participant.cancel">
+      <bpmn:extensionElements>
+        <pc:mapping layer="Domain Service" system="CiviCRM" owner="CiviCRM-Team"
+                    implementation="Setzt die Teilnahme auf Cancelled und gibt den Platz frei (API v4)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>F7</bpmn:incoming>
+      <bpmn:outgoing>F8</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="EndStorniert" name="Anmeldung storniert">
+      <bpmn:incoming>F8</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="EndBestaetigt" name="Anmeldung bestätigt">
+      <bpmn:incoming>F9</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="F1" sourceRef="Start" targetRef="Registrieren" />
+    <bpmn:sequenceFlow id="F2" sourceRef="Registrieren" targetRef="GwPlatz" />
+    <bpmn:sequenceFlow id="F3" name="nein" sourceRef="GwPlatz" targetRef="EndWarteliste" />
+    <bpmn:sequenceFlow id="F4" name="ja" sourceRef="GwPlatz" targetRef="Rechnung">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${platzFrei}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="F5" sourceRef="Rechnung" targetRef="Zahlung" />
+    <bpmn:sequenceFlow id="F6" sourceRef="Zahlung" targetRef="Bestaetigen" />
+    <bpmn:sequenceFlow id="F7" sourceRef="Zahlfrist" targetRef="Stornieren" />
+    <bpmn:sequenceFlow id="F8" sourceRef="Stornieren" targetRef="EndStorniert" />
+    <bpmn:sequenceFlow id="F9" sourceRef="Bestaetigen" targetRef="EndBestaetigt" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="Diagram_VeranstaltungAnmelden">
+    <bpmndi:BPMNPlane id="Plane_VeranstaltungAnmelden" bpmnElement="Collaboration_VeranstaltungAnmelden">
+
+      <bpmndi:BPMNShape id="Participant_VeranstaltungAnmelden_di" bpmnElement="Participant_VeranstaltungAnmelden" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1300" height="420" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Portal_di" bpmnElement="Lane_Portal" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1270" height="140" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_CiviCRM_di" bpmnElement="Lane_CiviCRM" isHorizontal="true">
+        <dc:Bounds x="190" y="220" width="1270" height="140" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Finanzen_di" bpmnElement="Lane_Finanzen" isHorizontal="true">
+        <dc:Bounds x="190" y="360" width="1270" height="140" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
+        <dc:Bounds x="252" y="132" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="294" y="141" width="140" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Registrieren_di" bpmnElement="Registrieren">
+        <dc:Bounds x="350" y="250" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GwPlatz_di" bpmnElement="GwPlatz" isMarkerVisible="true">
+        <dc:Bounds x="545" y="265" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="602" y="276" width="70" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndWarteliste_di" bpmnElement="EndWarteliste">
+        <dc:Bounds x="552" y="132" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="594" y="141" width="80" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Rechnung_di" bpmnElement="Rechnung">
+        <dc:Bounds x="670" y="390" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Zahlung_di" bpmnElement="Zahlung">
+        <dc:Bounds x="900" y="390" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Zahlfrist_di" bpmnElement="Zahlfrist">
+        <dc:Bounds x="912" y="372" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="822" y="352" width="84" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Stornieren_di" bpmnElement="Stornieren">
+        <dc:Bounds x="900" y="250" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Bestaetigen_di" bpmnElement="Bestaetigen">
+        <dc:Bounds x="1130" y="250" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndStorniert_di" bpmnElement="EndStorniert">
+        <dc:Bounds x="952" y="132" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="994" y="141" width="120" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndBestaetigt_di" bpmnElement="EndBestaetigt">
+        <dc:Bounds x="1182" y="132" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1224" y="141" width="120" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="F1_di" bpmnElement="F1">
+        <di:waypoint x="270" y="168" /><di:waypoint x="270" y="290" /><di:waypoint x="350" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F2_di" bpmnElement="F2">
+        <di:waypoint x="490" y="290" /><di:waypoint x="545" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F3_di" bpmnElement="F3">
+        <di:waypoint x="570" y="265" /><di:waypoint x="570" y="168" />
+        <bpmndi:BPMNLabel><dc:Bounds x="578" y="210" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F4_di" bpmnElement="F4">
+        <di:waypoint x="570" y="315" /><di:waypoint x="570" y="430" /><di:waypoint x="670" y="430" />
+        <bpmndi:BPMNLabel><dc:Bounds x="578" y="380" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F5_di" bpmnElement="F5">
+        <di:waypoint x="810" y="430" /><di:waypoint x="900" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F6_di" bpmnElement="F6">
+        <di:waypoint x="1040" y="430" /><di:waypoint x="1200" y="430" /><di:waypoint x="1200" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F7_di" bpmnElement="F7">
+        <di:waypoint x="930" y="372" /><di:waypoint x="930" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F8_di" bpmnElement="F8">
+        <di:waypoint x="970" y="250" /><di:waypoint x="970" y="168" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F9_di" bpmnElement="F9">
+        <di:waypoint x="1200" y="250" /><di:waypoint x="1200" y="168" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

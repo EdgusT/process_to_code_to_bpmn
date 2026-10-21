@@ -12,7 +12,8 @@
       "maximum": 365,
       "description": "Nach so vielen Tagen ohne Entscheidung wird der Antrag automatisch angenommen.",
       "x-unit": "Tage",
-      "x-owner": "Fachbereich"
+      "x-owner": "Fachbereich",
+      "x-variable": { "name": "autoAcceptDuration", "format": "isoDays" }
     }
   }
 }
