@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { runChecks } from './check.mjs';
-import { paths, processFiles } from './lib.mjs';
+import { paths, processFiles, involvedOf } from './lib.mjs';
 import { handlers } from '../workers/handlers.mjs';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,7 +22,8 @@ const TYPE_LABEL = {
 const KIND_PARAM = 'Parameter (zum Beispiel Frist oder Schwellenwert)';
 const KIND_FLOW = 'Ablauf (Schritt ergänzen, entfernen oder umstellen)';
 
-const { processes, global, ok } = await runChecks();
+const { processes, global, catalog, ok } = await runChecks();
+for (const p of processes) p.involved = involvedOf(p.model, p.meta, catalog);
 if (!ok) {
   console.error('Prüfungen fehlgeschlagen, die Seite wird nicht gebaut.');
   process.exit(1);
@@ -72,6 +73,10 @@ a { color:var(--accent); }
 .badge.Archiviert { background:#6B645533; color:#6B6455; }
 .filters { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:0 0 12px; }
 .filters select, .filters input { font:inherit; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+.chip.Domäne { background:#1F6F7818; border-color:#1F6F7855; }
+.chip.System { background:#fff; }
+.chip[data-b] { cursor:pointer; }
+.chip[data-b]:hover { border-color:var(--accent); }
 .btn { display:inline-block; background:var(--accent); color:#fff !important; padding:4px 14px; border-radius:999px; text-decoration:none; font-weight:600; font-size:.92rem; white-space:nowrap; }
 .btn.light { background:var(--paper); color:var(--ink) !important; }
 .btn.ghost { background:transparent; color:var(--accent) !important; border:1px solid var(--accent); }
@@ -166,6 +171,7 @@ async function processPage(p) {
   <h1>${esc(p.model.processName)}</h1>
   <p>${esc(p.model.documentation)}</p>
   <p>Prozess-Owner: <strong>${esc(p.meta.domain)}</strong> · <span class="badge ${esc(p.meta.status)}">${esc(p.meta.status)}</span></p>
+  <p>Beteiligt: ${p.involved.length ? p.involved.map((x) => `<span class="chip ${esc(x.kind)}" style="color:#14263A;background:#fff">${esc(x.name)}</span>`).join('') : 'nur der Prozess-Owner'}</p>
 </div></header>
 <main>
   <section>
@@ -221,11 +227,19 @@ ${footer('../../')}
 function overview() {
   const domains = [...new Set(processes.map((p) => p.meta.domain))].sort();
   const domainOptions = domains.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  const involvedAll = [...new Map(processes.flatMap((p) => p.involved).map((x) => [x.name, x])).values()]
+    .sort((a, b) => a.kind.localeCompare(b.kind, 'de') || a.name.localeCompare(b.name, 'de'));
+  const optGroup = (kind, label) => {
+    const items = involvedAll.filter((x) => x.kind === kind);
+    return items.length ? `<optgroup label="${label}">${items.map((x) => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('')}</optgroup>` : '';
+  };
+  const involvedOptions = optGroup('Domäne', 'Domänen') + optGroup('System', 'Systeme');
   const rows = [...processes].sort((x, y) => x.meta.domain.localeCompare(y.meta.domain) || x.model.processName.localeCompare(y.model.processName)).map((p) => {
     const ps = params(p);
-    return `<tr data-domain="${esc(p.meta.domain)}" data-text="${esc((p.model.processName + ' ' + p.meta.domain + ' ' + p.model.documentation).toLowerCase())}">
+    return `<tr data-domain="${esc(p.meta.domain)}" data-involved="${esc(p.involved.map((x) => x.name).join('|'))}" data-text="${esc((p.model.processName + ' ' + p.meta.domain + ' ' + p.model.documentation).toLowerCase())}">
     <td><a href="${link(p)}"><strong>${esc(p.model.processName)}</strong></a><div class="muted small">${esc(p.model.documentation)}</div></td>
     <td>${esc(p.meta.domain)}</td>
+    <td>${p.involved.map((x) => `<span class="chip ${esc(x.kind)}" data-b="${esc(x.name)}" title="Nach ${esc(x.name)} filtern">${esc(x.name)}</span>`).join('') || '<span class="muted">–</span>'}</td>
     <td>${ps.map((x) => `${esc(x.title)}: <strong>${esc(x.value)} ${esc(x.unit)}</strong>`).join('<br>')}</td>
     <td><a class="btn light" href="${link(p)}">Ansehen</a> <a class="btn ghost" href="${esc(changeUrl(p))}">Änderung beantragen</a></td>
   </tr>`;
@@ -249,11 +263,12 @@ function overview() {
     <h2>Prozesse</h2>
     <div class="filters">
       <label>Domäne (Prozess-Owner) <select id="f-domain"><option value="">alle</option>${domainOptions}</select></label>
+      <label>Beteiligt (Domäne oder System) <select id="f-inv"><option value="">alle</option>${involvedOptions}</select></label>
       <label>Suche <input id="f-text" type="search" placeholder="Prozess oder Stichwort"></label>
       <span id="f-count" class="muted"></span>
     </div>
     <table id="plist">
-      <thead><tr><th>Prozess</th><th>Domäne (Prozess-Owner)</th><th>Einstellbar</th><th></th></tr></thead>
+      <thead><tr><th>Prozess</th><th>Domäne (Prozess-Owner)</th><th>Beteiligt</th><th>Einstellbar</th><th></th></tr></thead>
       <tbody>
 ${rows}
       </tbody>
@@ -273,12 +288,14 @@ ${rows}
 ${footer('')}
 <script>
 (function () {
-  var sel = document.getElementById('f-domain'), txt = document.getElementById('f-text'), cnt = document.getElementById('f-count');
+  var sel = document.getElementById('f-domain'), inv = document.getElementById('f-inv'), txt = document.getElementById('f-text'), cnt = document.getElementById('f-count');
   var rows = Array.prototype.slice.call(document.querySelectorAll('#plist tbody tr'));
   function apply() {
-    var d = sel.value, t = txt.value.trim().toLowerCase(), n = 0;
+    var d = sel.value, v = inv.value, t = txt.value.trim().toLowerCase(), n = 0;
     rows.forEach(function (r) {
-      var show = (!d || r.getAttribute('data-domain') === d) && (!t || r.getAttribute('data-text').indexOf(t) >= 0);
+      var show = (!d || r.getAttribute('data-domain') === d)
+        && (!v || ('|' + r.getAttribute('data-involved') + '|').indexOf('|' + v + '|') >= 0)
+        && (!t || r.getAttribute('data-text').indexOf(t) >= 0);
       r.style.display = show ? '' : 'none';
       if (show) n++;
     });
@@ -287,7 +304,10 @@ ${footer('')}
   }
   var h = decodeURIComponent(location.hash.slice(1));
   if (h) for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === h) sel.value = h;
-  sel.addEventListener('change', apply); txt.addEventListener('input', apply); apply();
+  document.querySelectorAll('#plist .chip[data-b]').forEach(function (c) {
+    c.addEventListener('click', function () { inv.value = c.getAttribute('data-b'); apply(); });
+  });
+  sel.addEventListener('change', apply); inv.addEventListener('change', apply); txt.addEventListener('input', apply); apply();
 })();
 </script>
 </body>

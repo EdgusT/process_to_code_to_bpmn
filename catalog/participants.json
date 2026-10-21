@@ -1,0 +1,33 @@
+{
+  "_hinweis": "Jede Bahn im Diagramm und jedes System in der Zuordnung muss hier stehen. So heißt Finanzen überall gleich und lässt sich filtern.",
+  "participants": [
+    {
+      "name": "Beziehungsmanagement",
+      "kind": "Domäne"
+    },
+    {
+      "name": "Veranstaltungsmanagement",
+      "kind": "Domäne"
+    },
+    {
+      "name": "Finanzen",
+      "kind": "Domäne"
+    },
+    {
+      "name": "CiviCRM",
+      "kind": "System"
+    },
+    {
+      "name": "Finanzsystem",
+      "kind": "System"
+    },
+    {
+      "name": "Portal",
+      "kind": "Plattform"
+    },
+    {
+      "name": "Orchestrierung",
+      "kind": "Plattform"
+    }
+  ]
+}

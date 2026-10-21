@@ -14,13 +14,12 @@
   </bpmn:collaboration>
 
   <bpmn:process id="mitglied_werden" name="Mitglied werden" isExecutable="true">
-    <bpmn:documentation>Beispielprozess: Eine Person beantragt die Mitgliedschaft im Portal, CiviCRM prüft die Angaben, das Beziehungsmanagement gibt frei oder die Annahme erfolgt automatisch nach Fristablauf.</bpmn:documentation>
+    <bpmn:documentation>Beispielprozess: Eine Person beantragt die Mitgliedschaft im Portal, CiviCRM prüft die Angaben, das Beziehungsmanagement gibt frei oder die Annahme erfolgt automatisch nach Fristablauf, danach stellt Finanzen die Beitragsrechnung.</bpmn:documentation>
 
     <bpmn:laneSet id="LaneSet_MitgliedWerden">
       <bpmn:lane id="Lane_Portal" name="Portal">
         <bpmn:flowNodeRef>Start</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>EndUngueltig</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>EndAktiv</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>EndAbgelehnt</bpmn:flowNodeRef>
       </bpmn:lane>
       <bpmn:lane id="Lane_Orchestrierung" name="Orchestrierung">
@@ -35,6 +34,10 @@
         <bpmn:flowNodeRef>Freigeben</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Frist</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>GwFreigabe</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Finanzen" name="Finanzen">
+        <bpmn:flowNodeRef>Rechnung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndAktiv</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
 
@@ -109,6 +112,17 @@
       <bpmn:outgoing>F10</bpmn:outgoing>
     </bpmn:serviceTask>
 
+    <bpmn:serviceTask id="Rechnung" name="Beitragsrechnung erstellen"
+                      flowable:type="external-worker" flowable:topic="finance.invoice.create">
+      <bpmn:documentation>Das Finanzsystem erstellt die Beitragsrechnung und sendet sie an die Person.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <pc:mapping layer="Domain Service" system="Finanzsystem" owner="Finanzen"
+                    implementation="Erstellt die Beitragsrechnung und versendet sie (Finanzsystem-API)" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>F10</bpmn:incoming>
+      <bpmn:outgoing>F11</bpmn:outgoing>
+    </bpmn:serviceTask>
+
     <bpmn:serviceTask id="Ablehnen" name="Antrag ablehnen"
                       flowable:type="external-worker" flowable:topic="civicrm.membership.reject">
       <bpmn:documentation>Der Antrag wird abgelehnt und die Person wird informiert.</bpmn:documentation>
@@ -122,7 +136,7 @@
 
     <bpmn:endEvent id="EndAktiv" name="Mitglied aktiv">
       <bpmn:documentation>Die Person ist aktives Mitglied.</bpmn:documentation>
-      <bpmn:incoming>F10</bpmn:incoming>
+      <bpmn:incoming>F11</bpmn:incoming>
     </bpmn:endEvent>
 
     <bpmn:endEvent id="EndAbgelehnt" name="Antrag abgelehnt">
@@ -143,14 +157,15 @@
     </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="F8" name="nein" sourceRef="GwFreigabe" targetRef="Ablehnen" />
     <bpmn:sequenceFlow id="F9" sourceRef="Ablehnen" targetRef="EndAbgelehnt" />
-    <bpmn:sequenceFlow id="F10" sourceRef="Aktivieren" targetRef="EndAktiv" />
+    <bpmn:sequenceFlow id="F10" sourceRef="Aktivieren" targetRef="Rechnung" />
+    <bpmn:sequenceFlow id="F11" sourceRef="Rechnung" targetRef="EndAktiv" />
   </bpmn:process>
 
   <bpmndi:BPMNDiagram id="Diagram_MitgliedWerden">
     <bpmndi:BPMNPlane id="Plane_MitgliedWerden" bpmnElement="Collaboration_MitgliedWerden">
 
       <bpmndi:BPMNShape id="Participant_MitgliedWerden_di" bpmnElement="Participant_MitgliedWerden" isHorizontal="true">
-        <dc:Bounds x="160" y="80" width="1280" height="560" />
+        <dc:Bounds x="160" y="80" width="1280" height="700" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_Portal_di" bpmnElement="Lane_Portal" isHorizontal="true">
         <dc:Bounds x="190" y="80" width="1250" height="140" />
@@ -163,6 +178,10 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_Beziehungsmanagement_di" bpmnElement="Lane_Beziehungsmanagement" isHorizontal="true">
         <dc:Bounds x="190" y="500" width="1250" height="140" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Lane_Finanzen_di" bpmnElement="Lane_Finanzen" isHorizontal="true">
+        <dc:Bounds x="190" y="640" width="1250" height="140" />
       </bpmndi:BPMNShape>
 
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
@@ -197,9 +216,12 @@
       <bpmndi:BPMNShape id="Ablehnen_di" bpmnElement="Ablehnen">
         <dc:Bounds x="1210" y="390" width="140" height="80" />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Rechnung_di" bpmnElement="Rechnung">
+        <dc:Bounds x="1130" y="670" width="140" height="80" />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndAktiv_di" bpmnElement="EndAktiv">
-        <dc:Bounds x="1032" y="132" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="1074" y="141" width="100" height="14" /></bpmndi:BPMNLabel>
+        <dc:Bounds x="1322" y="692" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1300" y="734" width="80" height="14" /></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndAbgelehnt_di" bpmnElement="EndAbgelehnt">
         <dc:Bounds x="1262" y="132" width="36" height="36" />
@@ -227,7 +249,7 @@
         <di:waypoint x="700" y="512" /><di:waypoint x="700" y="430" /><di:waypoint x="980" y="430" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="F7_di" bpmnElement="F7">
-        <di:waypoint x="925" y="570" /><di:waypoint x="1050" y="570" /><di:waypoint x="1050" y="470" />
+        <di:waypoint x="925" y="570" /><di:waypoint x="1010" y="570" /><di:waypoint x="1010" y="470" />
         <bpmndi:BPMNLabel><dc:Bounds x="965" y="552" width="20" height="14" /></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="F8_di" bpmnElement="F8">
@@ -238,7 +260,10 @@
         <di:waypoint x="1280" y="390" /><di:waypoint x="1280" y="168" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="F10_di" bpmnElement="F10">
-        <di:waypoint x="1050" y="390" /><di:waypoint x="1050" y="168" />
+        <di:waypoint x="1090" y="470" /><di:waypoint x="1090" y="710" /><di:waypoint x="1130" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F11_di" bpmnElement="F11">
+        <di:waypoint x="1270" y="710" /><di:waypoint x="1322" y="710" />
       </bpmndi:BPMNEdge>
 
     </bpmndi:BPMNPlane>

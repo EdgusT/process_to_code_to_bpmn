@@ -1,6 +1,6 @@
 import Ajv from 'ajv';
 import { pathToFileURL } from 'node:url';
-import { listProcessIds, loadProcess, extractModel, extractDiagram, deriveVariables } from './lib.mjs';
+import { listProcessIds, loadProcess, loadCatalog, extractModel, extractDiagram, deriveVariables } from './lib.mjs';
 import { handlers, userTaskOutputs } from '../workers/handlers.mjs';
 
 const EL_KEYWORDS = new Set(['true', 'false', 'null', 'empty', 'not', 'and', 'or', 'eq', 'ne', 'lt', 'gt', 'le', 'ge', 'div', 'mod']);
@@ -30,7 +30,7 @@ function overlap(a, b) {
 const META_FIELDS = ['domain', 'status'];
 const STATUS = new Set(['Entwurf', 'Produktiv', 'Archiviert']);
 
-async function checkProcess(id) {
+async function checkProcess(id, catalog) {
   const { params, schema, meta, definitions, warnings } = await loadProcess(id);
   const model = extractModel(definitions);
   const diagram = extractDiagram(definitions);
@@ -56,6 +56,20 @@ async function checkProcess(id) {
     if (!model.documentation) problems.push('BPMN: Beschreibung (documentation) am Prozess fehlt');
     if (meta.domain && model.participantName !== meta.domain) problems.push(`Pool im Diagramm heißt "${model.participantName ?? ''}", muss aber wie die Domäne heißen: "${meta.domain}"`);
     add('Prozess hat Domäne (Prozess-Owner), Status und Beschreibung; Pool im Diagramm trägt die Domäne', problems);
+  }
+
+  // 1c. Bahnen und Systeme stehen im Katalog der Beteiligten
+  {
+    const known = new Set(catalog.map((c) => c.name));
+    const problems = [];
+    for (const lane of new Set(model.nodes.map((n) => n.lane).filter(Boolean))) {
+      if (!known.has(lane)) problems.push(`Bahn "${lane}" fehlt in catalog/participants.json`);
+    }
+    for (const sys of new Set(model.nodes.map((n) => n.mapping?.system).filter(Boolean))) {
+      if (!known.has(sys)) problems.push(`System "${sys}" fehlt in catalog/participants.json`);
+    }
+    if (meta.domain && !catalog.some((c) => c.name === meta.domain && c.kind === 'Domäne')) problems.push(`Domäne "${meta.domain}" fehlt als Domäne im Katalog`);
+    add('Bahnen, Systeme und Domäne stehen im Katalog der Beteiligten', problems);
   }
 
   // 2. BPMN lässt sich fehlerfrei lesen
@@ -158,12 +172,26 @@ async function checkProcess(id) {
 
 export async function runChecks() {
   const ids = await listProcessIds();
+  const catalog = await loadCatalog();
   const processes = [];
-  for (const id of ids) processes.push(await checkProcess(id));
+  for (const id of ids) processes.push(await checkProcess(id, catalog));
 
   // Prozessübergreifend
   const global = [];
   const add = (name, problems, info = '') => global.push({ name, ok: problems.length === 0, problems, info });
+
+  // Katalog ist in sich stimmig
+  {
+    const problems = [];
+    const names = new Set();
+    for (const c of catalog) {
+      if (names.has(c.name)) problems.push(`Name doppelt im Katalog: ${c.name}`);
+      names.add(c.name);
+      if (!['Domäne', 'Team', 'System', 'Plattform'].includes(c.kind)) problems.push(`${c.name}: unbekannte Art "${c.kind}"`);
+      if (c.kind === 'Team' && !catalog.some((d) => d.name === c.domain && d.kind === 'Domäne')) problems.push(`${c.name}: Domäne "${c.domain}" fehlt im Katalog`);
+    }
+    add('Katalog der Beteiligten ist stimmig', problems, `${catalog.length} Einträge`);
+  }
 
   // Prozess-IDs im BPMN sind eindeutig, sonst kollidieren sie in der Engine
   {
@@ -193,7 +221,7 @@ export async function runChecks() {
     add('Drift-Check: Task-Typen in allen Modellen und Handler im Code stimmen überein', problems, `${modelTopics.size} Task-Typen`);
   }
 
-  return { processes, global, ok: global.every((r) => r.ok) && processes.every((p) => p.ok) };
+  return { processes, global, catalog, ok: global.every((r) => r.ok) && processes.every((p) => p.ok) };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

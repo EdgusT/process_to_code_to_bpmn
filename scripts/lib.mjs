@@ -21,6 +21,31 @@ export async function listProcessIds() {
     .sort();
 }
 
+export async function loadCatalog() {
+  const text = await readFile(path.join(root, 'catalog/participants.json'), 'utf8');
+  return JSON.parse(text).participants;
+}
+
+// Beteiligte eines Prozesses für Anzeige und Filter: Domänen und Systeme aus Bahnen und Zuordnung.
+// Teams zählen zu ihrer Domäne, Plattformen (Portal, Orchestrierung) werden nicht angezeigt,
+// die Domäne des Prozess-Owners ist nicht "beteiligt", sondern Owner.
+export function involvedOf(model, meta, catalog) {
+  const byName = new Map(catalog.map((c) => [c.name, c]));
+  const names = new Set([
+    ...model.nodes.map((n) => n.lane),
+    ...model.nodes.map((n) => n.mapping?.system),
+  ].filter(Boolean));
+  const out = new Map();
+  for (const name of names) {
+    let e = byName.get(name);
+    if (!e) continue;
+    if (e.kind === 'Team') e = byName.get(e.domain) ?? e;
+    if (e.kind === 'Plattform' || e.name === meta.domain) continue;
+    out.set(e.name, { name: e.name, kind: e.kind });
+  }
+  return [...out.values()].sort((a, b) => a.kind.localeCompare(b.kind, 'de') || a.name.localeCompare(b.name, 'de'));
+}
+
 export function processFiles(id) {
   const dir = path.join(paths.processes, id);
   return {

@@ -12,6 +12,7 @@ Das Repository ist ein Entwurf für die Diskussion, wie Prozesse in einem Compos
 | `processes/<id>/parameters.json` | Parameter dieses Prozesses, zum Beispiel `autoAcceptAfterDays` |
 | `processes/<id>/parameters.schema.json` | JSON-Schema: Typ, Grenzen, Bedeutung, Verantwortliche und Umrechnung in Prozessvariablen (`x-variable`) |
 | `processes/<id>/meta.json` | Domäne (= Prozess-Owner) und Status des Prozesses |
+| `catalog/participants.json` | Katalog der Beteiligten: Domänen, Teams, Systeme und Plattformen. Jede Bahn und jedes System in einem Prozess muss hier stehen |
 | `workers/handlers.mjs` | Platzhalter für die Worker: ein Handler je Task-Typ, geteilt über alle Prozesse |
 | `scripts/check.mjs` | Prüfungen je Prozess und prozessübergreifend (siehe unten) |
 | `scripts/render-svg.mjs` | Rendert jedes BPMN als SVG (Playwright mit dem bpmn.io-Viewer) |
@@ -21,6 +22,17 @@ Das Repository ist ein Entwurf für die Diskussion, wie Prozesse in einem Compos
 Die **Domäne** ist der Prozess-Owner. Sie steht in `meta.json` und als Name des Pools im Diagramm, die Prüfung vergleicht beides. Der Button „Änderung beantragen“ öffnet ein vorbelegtes Issue-Formular (`.github/ISSUE_TEMPLATE/prozessaenderung.yml`).
 
 Aktuell enthalten: **Mitglied werden** (Domäne Beziehungsmanagement) und **Veranstaltung anmelden** (Domäne Veranstaltungsmanagement, mit Finanzsystem).
+
+## Owner und Beteiligte
+
+Der **Pool** im Diagramm ist die Domäne des Prozess-Owners. Die **Bahnen** darin sind weitere Beteiligte: andere Domänen (zum Beispiel Finanzen), Teams, Systeme und Plattformen (Portal, Orchestrierung). Damit sie überall gleich heißen und sich filtern lassen, stehen alle in `catalog/participants.json`:
+
+- **Domäne:** zählt als Beteiligte, wenn sie nicht selbst Owner ist.
+- **Team** (zum Beispiel Backoffice): zählt zur angegebenen Domäne.
+- **System** (zum Beispiel CiviCRM): zählt als Beteiligte, auch wenn es nur in der Zuordnung eines Schritts vorkommt.
+- **Plattform** (Portal, Orchestrierung): wird nicht als Beteiligte angezeigt.
+
+Die Übersicht filtert nach Prozess-Owner und nach Beteiligten. Ein Klick auf eine Beteiligte in der Liste setzt den Filter.
 
 ## Aufbau der Seite
 
