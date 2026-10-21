@@ -28,7 +28,7 @@ Aktuell enthalten: **Mitglied werden** (Domäne Beziehungsmanagement) und **Vera
 Der **Pool** im Diagramm ist die Domäne des Prozess-Owners. Die **Bahnen** darin sind weitere Beteiligte: andere Domänen (zum Beispiel Finanzen), Teams, Systeme und Plattformen (Portal, Orchestrierung). Damit sie überall gleich heißen und sich filtern lassen, stehen alle in `catalog/participants.json`:
 
 - **Domäne:** zählt als Beteiligte, wenn sie nicht selbst Owner ist.
-- **Team** (zum Beispiel Backoffice): zählt zur angegebenen Domäne.
+- **Team** (ein Team innerhalb einer Domäne, mit Angabe `domain`): zählt zur angegebenen Domäne.
 - **System** (zum Beispiel CiviCRM): zählt als Beteiligte, auch wenn es nur in der Zuordnung eines Schritts vorkommt.
 - **Plattform** (Portal, Orchestrierung): wird nicht als Beteiligte angezeigt.
 
