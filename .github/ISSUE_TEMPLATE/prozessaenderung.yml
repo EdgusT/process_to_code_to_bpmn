@@ -1,0 +1,44 @@
+name: Prozessänderung beantragen
+description: Ein Prozess soll sich ändern (Parameter, Ablauf oder neuer Prozess)
+title: "Änderung: "
+labels: ["prozessänderung"]
+body:
+  - type: input
+    id: process
+    attributes:
+      label: Prozess
+      description: Wird von der Prozessübersicht vorbelegt.
+    validations:
+      required: true
+  - type: input
+    id: domain
+    attributes:
+      label: Domäne (Prozess-Owner)
+      description: Wird von der Prozessübersicht vorbelegt.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Art der Änderung
+      options:
+        - Parameter (zum Beispiel Frist oder Schwellenwert)
+        - Ablauf (Schritt ergänzen, entfernen oder umstellen)
+        - Neuer Prozess
+        - Weiß ich nicht
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: Was soll sich ändern?
+      description: Heutiger Stand und gewünschter Stand, bei Parametern der neue Wert.
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Warum?
+  - type: input
+    id: date
+    attributes:
+      label: Gewünscht ab
+      description: Datum oder Anlass

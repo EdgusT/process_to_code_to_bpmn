@@ -11,18 +11,20 @@ Das Repository ist ein Entwurf für die Diskussion, wie Prozesse in einem Compos
 | `processes/<id>/<id>.bpmn` | Der Ablauf eines Prozesses: Bahnen, Schritte, Timer, Task-Typen und die Zuordnung je Schritt (`pc:mapping`) |
 | `processes/<id>/parameters.json` | Parameter dieses Prozesses, zum Beispiel `autoAcceptAfterDays` |
 | `processes/<id>/parameters.schema.json` | JSON-Schema: Typ, Grenzen, Bedeutung, Verantwortliche und Umrechnung in Prozessvariablen (`x-variable`) |
-| `processes/<id>/meta.json` | Bereich, Verantwortliche und Status des Prozesses |
+| `processes/<id>/meta.json` | Domäne (= Prozess-Owner) und Status des Prozesses |
 | `workers/handlers.mjs` | Platzhalter für die Worker: ein Handler je Task-Typ, geteilt über alle Prozesse |
 | `scripts/check.mjs` | Prüfungen je Prozess und prozessübergreifend (siehe unten) |
 | `scripts/render-svg.mjs` | Rendert jedes BPMN als SVG (Playwright mit dem bpmn.io-Viewer) |
 | `scripts/build-site.mjs` | Baut die Prozesslandkarte `site/index.html` und eine Seite je Prozess |
 | `.github/workflows/docs.yml` | Pipeline: prüfen, rendern, bauen, veröffentlichen |
 
-Aktuell enthalten: **Mitglied werden** (Mitgliedschaft) und **Veranstaltung anmelden** (Veranstaltungen, mit Finanzsystem).
+Die **Domäne** ist der Prozess-Owner. Sie steht in `meta.json` und als Name des Pools im Diagramm, die Prüfung vergleicht beides. Der Button „Änderung beantragen“ öffnet ein vorbelegtes Issue-Formular (`.github/ISSUE_TEMPLATE/prozessaenderung.yml`).
+
+Aktuell enthalten: **Mitglied werden** (Domäne Beziehungsmanagement) und **Veranstaltung anmelden** (Domäne Veranstaltungsmanagement, mit Finanzsystem).
 
 ## Aufbau der Seite
 
-- **Übersicht** (`/`): Kacheln mit Kennzahlen, Prozesskarten mit Vorschaubild nach Bereich gruppiert, Matrix „Welche Prozesse nutzen welches System“, Liste der Task-Typen mit Handler und Nutzung, alle Parameter aller Prozesse, Prüfergebnis.
+- **Übersicht** (`/`): Kennzahlen, Prozessliste mit Domäne (Prozess-Owner), Status und Systemen (Filter nach Domäne und Suche, Direktlink mit `#Domäne`), Änderungsprozess, Matrix „Welche Prozesse nutzen welches System“, Liste der Task-Typen mit Handler und Nutzung, alle Parameter aller Prozesse, Prüfergebnis.
 - **Prozessseite** (`/prozesse/<id>/`): Diagramm, Schritte mit Zuordnung, Parameter mit abgeleiteten Variablen, Prüfergebnis und Downloads der Quelldateien.
 
 ## Neuen Prozess anlegen
@@ -46,7 +48,7 @@ npm run build    # Seite nach site/ bauen
 Je Prozess:
 
 1. Die Parameter passen zum JSON-Schema.
-2. Bereich, Verantwortliche, Status und Beschreibung sind angegeben.
+2. Domäne, Status und Beschreibung sind angegeben, und der Pool im Diagramm heißt wie die Domäne.
 3. Die BPMN-Datei lässt sich fehlerfrei lesen.
 4. Jeder Schritt hat Ebene, Verantwortliche und Umsetzung.
 5. Variablen in Bedingungen und Timern sind bekannt (Parameter oder Ergebnis eines Schritts dieses Prozesses).

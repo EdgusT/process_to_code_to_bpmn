@@ -10,7 +10,7 @@
                   targetNamespace="https://github.com/EdgusT/process_to_code_to_bpmn/processes">
 
   <bpmn:collaboration id="Collaboration_MitgliedWerden">
-    <bpmn:participant id="Participant_MitgliedWerden" name="Mitglied werden" processRef="mitglied_werden" />
+    <bpmn:participant id="Participant_MitgliedWerden" name="Beziehungsmanagement" processRef="mitglied_werden" />
   </bpmn:collaboration>
 
   <bpmn:process id="mitglied_werden" name="Mitglied werden" isExecutable="true">

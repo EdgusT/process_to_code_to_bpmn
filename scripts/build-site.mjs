@@ -77,8 +77,15 @@ a { color:var(--accent); }
 .badge { display:inline-block; border-radius:999px; padding:1px 10px; font-size:.85rem; font-weight:600; background:#E8A04C33; color:var(--warm); }
 .badge.Produktiv { background:#1F6F7822; color:var(--accent); }
 .badge.Archiviert { background:#6B645533; color:#6B6455; }
+.small { font-size:.88rem; font-weight:400; }
+.filters { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:0 0 12px; }
+.filters select, .filters input { font:inherit; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+.btn { display:inline-block; background:var(--paper); color:var(--ink) !important; padding:2px 12px; border-radius:999px; text-decoration:none; font-weight:600; font-size:.9rem; }
 .meta { font-size:.9rem; color:var(--muted); margin-top:6px; }
 `;
+
+const repo = process.env.GITHUB_REPOSITORY ?? 'EdgusT/process_to_code_to_bpmn';
+const changeUrl = (p) => `https://github.com/${repo}/issues/new?template=prozessaenderung.yml&title=${encodeURIComponent(`Änderung: ${p.model.processName}`)}&process=${encodeURIComponent(p.id)}&domain=${encodeURIComponent(p.meta.domain)}`;
 
 const systemsOf = (p) => [...new Set(p.model.nodes.map((n) => n.mapping?.system).filter(Boolean))];
 const stepsOf = (p) => p.model.nodes.filter((n) => n.mapping);
@@ -130,10 +137,10 @@ async function processPage(p) {
 </head>
 <body>
 <header><div class="inner">
-  <div class="crumb"><a href="../../">Prozesslandkarte</a> › ${esc(p.meta.domain)}</div>
+  <div class="crumb"><a href="../../">Prozessübersicht</a> › ${esc(p.meta.domain)}</div>
   <h1>Prozess: ${esc(p.model.processName)}</h1>
   <p>${esc(p.model.documentation)}</p>
-  <p class="meta" style="color:#C9D3DD"><span class="badge ${esc(p.meta.status)}">${esc(p.meta.status)}</span> · Verantwortlich: ${esc(p.meta.owner)}</p>
+  <p class="meta" style="color:#C9D3DD"><span class="badge ${esc(p.meta.status)}">${esc(p.meta.status)}</span> · Prozess-Owner: <strong>${esc(p.meta.domain)}</strong> · <a class="btn" href="${esc(changeUrl(p))}">Änderung beantragen</a></p>
 </div></header>
 <main>
   <section>
@@ -208,20 +215,17 @@ function overview() {
   }
   const systems = [...new Set(processes.flatMap(systemsOf))].sort();
   const domains = [...new Set(processes.map((p) => p.meta.domain))].sort();
+  const domainOptions = domains.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
   const checksTotal = processes.reduce((a, p) => a + p.results.length, 0) + global.length;
 
-  const card = (p) => `<a class="pcard" href="${link(p)}">
-    <div class="thumb">${existsSync(path.join(paths.site, 'prozesse', p.id, 'diagram.svg')) ? `<img src="${link(p)}diagram.svg" alt="Diagramm ${esc(p.model.processName)}">` : '<span class="note">Diagramm folgt in der CI</span>'}</div>
-    <div class="body">
-      <h3>${esc(p.model.processName)}</h3>
-      <p>${esc(p.model.documentation)}</p>
-      <div>${systemsOf(p).map((s) => `<span class="chip">${esc(s)}</span>`).join('')}</div>
-      <div class="meta"><span class="badge ${esc(p.meta.status)}">${esc(p.meta.status)}</span> · ${stepsOf(p).length} Schritte · ${esc(p.meta.owner)}</div>
-    </div>
-  </a>`;
-
-  const domainSections = domains.map((d) => `<h3>${esc(d)}</h3>
-    <div class="cards">${processes.filter((p) => p.meta.domain === d).map(card).join('\n')}</div>`).join('\n');
+  const listRows = [...processes].sort((x, y) => x.meta.domain.localeCompare(y.meta.domain) || x.model.processName.localeCompare(y.model.processName)).map((p) => `<tr data-domain="${esc(p.meta.domain)}" data-text="${esc((p.model.processName + ' ' + p.meta.domain + ' ' + systemsOf(p).join(' ')).toLowerCase())}">
+    <td><a href="${link(p)}"><strong>${esc(p.model.processName)}</strong></a><div class="muted small">${esc(p.model.documentation)}</div></td>
+    <td>${esc(p.meta.domain)}</td>
+    <td><span class="badge ${esc(p.meta.status)}">${esc(p.meta.status)}</span></td>
+    <td>${systemsOf(p).map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</td>
+    <td class="num">${stepsOf(p).length}</td>
+    <td><a href="${link(p)}">Diagramm</a> · <a href="${esc(changeUrl(p))}">Änderung beantragen</a></td>
+  </tr>`).join('\n');
 
   const matrixRows = systems.map((s) => `<tr><td>${esc(s)}</td>${processes.map((p) => {
     const n = p.model.nodes.filter((x) => x.mapping?.system === s).length;
@@ -252,12 +256,12 @@ function overview() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prozesslandkarte</title>
+<title>Prozessübersicht</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header><div class="inner">
-  <h1>Prozesslandkarte</h1>
+  <h1>Prozessübersicht</h1>
   <p>Beispiel für Docs as Code: Jeder Prozess liegt als BPMN-Datei mit Parametern im Repository, diese Seite entsteht daraus bei jedem Push.</p>
 </div></header>
 <main>
@@ -269,7 +273,27 @@ function overview() {
   </div>
   <section>
     <h2>Prozesse</h2>
-${domainSections}
+    <div class="filters">
+      <label>Domäne (Prozess-Owner) <select id="f-domain"><option value="">alle</option>${domainOptions}</select></label>
+      <label>Suche <input id="f-text" type="search" placeholder="Prozess oder System"></label>
+      <span id="f-count" class="muted"></span>
+    </div>
+    <table id="plist">
+      <thead><tr><th>Prozess</th><th>Domäne (Prozess-Owner)</th><th>Status</th><th>Systeme</th><th class="num">Schritte</th><th>Aktion</th></tr></thead>
+      <tbody>
+${listRows}
+      </tbody>
+    </table>
+    <p class="muted small">Link zu einer Domäne: <code>#Domänenname</code> an die Adresse hängen, zum Beispiel <code>#${esc(domains[0] ?? '')}</code>.</p>
+  </section>
+  <section>
+    <h2>So ändere ich einen Prozess</h2>
+    <ol>
+      <li>Prozess öffnen und prüfen, was heute gilt (Diagramm, Schritte, Parameter).</li>
+      <li><strong>Änderung beantragen</strong> wählen. Das Formular ist mit dem Prozess vorbelegt. Beschreiben, was sich ändern soll und warum.</li>
+      <li>Die Domäne (Prozess-Owner) entscheidet fachlich. Je nach Art der Änderung setzt das Prozessteam oder die Entwicklung sie um.</li>
+      <li>Jede Änderung läuft als Merge Request: automatische Prüfung, Freigabe durch die Domäne, Veröffentlichung. Diese Seite zeigt danach den neuen Stand.</li>
+    </ol>
   </section>
   <section>
     <h2>Welche Prozesse nutzen welches System</h2>
@@ -313,6 +337,25 @@ ${checkItems(global)}
   </section>
 </main>
 ${footer}
+<script>
+(function () {
+  var sel = document.getElementById('f-domain'), txt = document.getElementById('f-text'), cnt = document.getElementById('f-count');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#plist tbody tr'));
+  function apply() {
+    var d = sel.value, t = txt.value.trim().toLowerCase(), n = 0;
+    rows.forEach(function (r) {
+      var show = (!d || r.getAttribute('data-domain') === d) && (!t || r.getAttribute('data-text').indexOf(t) >= 0);
+      r.style.display = show ? '' : 'none';
+      if (show) n++;
+    });
+    cnt.textContent = n + ' von ' + rows.length + ' Prozessen';
+    try { history.replaceState(null, '', d ? '#' + encodeURIComponent(d) : location.pathname + location.search); } catch (e) {}
+  }
+  var h = decodeURIComponent(location.hash.slice(1));
+  if (h) for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === h) sel.value = h;
+  sel.addEventListener('change', apply); txt.addEventListener('input', apply); apply();
+})();
+</script>
 </body>
 </html>
 `;

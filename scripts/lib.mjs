@@ -119,8 +119,10 @@ export function extractModel(definitions) {
       });
     }
   }
+  const collab = definitions.rootElements.find((e) => e.$type === 'bpmn:Collaboration');
+  const participantName = (collab?.participants ?? []).find((x) => x.processRef?.id === proc.id)?.name ?? null;
   const documentation = (proc.documentation ?? []).map((d) => d.text).join(' ').trim();
-  return { processId: proc.id, processName: proc.name, documentation, nodes, flows };
+  return { processId: proc.id, processName: proc.name, participantName, documentation, nodes, flows };
 }
 
 export function extractDiagram(definitions) {

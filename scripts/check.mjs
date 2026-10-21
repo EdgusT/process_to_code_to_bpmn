@@ -27,7 +27,7 @@ function overlap(a, b) {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
-const META_FIELDS = ['domain', 'owner', 'status'];
+const META_FIELDS = ['domain', 'status'];
 const STATUS = new Set(['Entwurf', 'Produktiv', 'Archiviert']);
 
 async function checkProcess(id) {
@@ -54,7 +54,8 @@ async function checkProcess(id) {
     for (const k of META_FIELDS) if (!meta[k]) problems.push(`meta.json: ${k} fehlt`);
     if (meta.status && !STATUS.has(meta.status)) problems.push(`meta.json: status "${meta.status}" ist nicht erlaubt (${[...STATUS].join(', ')})`);
     if (!model.documentation) problems.push('BPMN: Beschreibung (documentation) am Prozess fehlt');
-    add('Prozess hat Bereich, Verantwortliche, Status und Beschreibung', problems);
+    if (meta.domain && model.participantName !== meta.domain) problems.push(`Pool im Diagramm heißt "${model.participantName ?? ''}", muss aber wie die Domäne heißen: "${meta.domain}"`);
+    add('Prozess hat Domäne (Prozess-Owner), Status und Beschreibung; Pool im Diagramm trägt die Domäne', problems);
   }
 
   // 2. BPMN lässt sich fehlerfrei lesen
