@@ -1,0 +1,4 @@
+{
+  "$schema": "../../schemas/parameters.schema.json",
+  "autoAcceptAfterDays": 30
+}

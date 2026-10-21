@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Parameter des Prozesses „Mitglied werden“",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["autoAcceptAfterDays"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "autoAcceptAfterDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 365,
+      "description": "Nach so vielen Tagen ohne Entscheidung wird der Antrag automatisch angenommen.",
+      "x-unit": "Tage",
+      "x-owner": "Fachbereich"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "process-to-code-to-bpmn",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Beispiel: Prozess als BPMN im Repository, Parameter als JSON, Doku-Seite per CI",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "render": "node scripts/render-svg.mjs",
+    "build": "node scripts/build-site.mjs",
+    "all": "npm run check && npm run render && npm run build"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "bpmn-js": "^18.31.0",
+    "bpmn-moddle": "^10.3.1",
+    "playwright": "^1.64.1"
+  }
+}
